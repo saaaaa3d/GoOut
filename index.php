@@ -1,0 +1,192 @@
+<?php
+session_start();
+
+if (isset($_SESSION['user'])) {
+    header("Location: project.php");
+    exit();
+}
+
+require 'db.php';
+
+// Sign Up
+if (isset($_POST['signup'])) {
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+
+    // Vérifier si username ou email existe déjà
+    $check = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
+    $check->execute([$username, $email]);
+
+    if ($check->rowCount() > 0) {
+        $error = "Username or Email already exists.";
+        $show_form = 'signup';
+    } else {
+        // Insérer un nouvel utilisateur
+        $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+        $stmt->execute([$username, $email, $password]);
+        $_SESSION['user'] = $username;
+        header("Location: project.php");
+        exit();
+    }
+}
+
+// Login
+if (isset($_POST['login'])) {
+    $username = trim($_POST['username']);
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($_POST['password'], $user['password'])) {
+        $_SESSION['user'] = $username;
+        header("Location: project.php");
+        exit();
+    } else {
+        $error = "Invalid credentials.";
+        $show_form = 'login';
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login / Sign Up</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --light-gray: #f8f9fa;
+            --text-color: #333;
+            --text-muted: #6c757d;
+        }
+        body, html { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
+        .split-container { display: flex; width: 100vw; height: 100vh; }
+        .form-side { flex-basis: 50%; background-color: white; display: flex; justify-content: center; align-items: center; padding: 40px; overflow-y: auto; }
+        .form-wrapper { width: 100%; max-width: 420px; position: relative; }
+        .logo { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 2rem; font-weight: bold; color: var(--text-color); margin-bottom: 20px; }
+        .logo i { font-size: 2.5rem; color: var(--primary-color); }
+        .form-wrapper h2 { font-size: 1.8rem; font-weight: 600; text-align: center; color: var(--text-color); margin-top: 0; }
+        .form-wrapper .subtitle { text-align: center; color: var(--text-muted); margin-bottom: 30px; }
+        .forms-container { position: relative; height: 380px; overflow: hidden; }
+        form { position: absolute; width: 100%; left: 0; transition: all 0.5s ease-in-out; }
+        #signup-form { transform: translateX(0); opacity: 1; }
+        #login-form { transform: translateX(100%); opacity: 0; }
+        .forms-container.show-login #signup-form { transform: translateX(-100%); opacity: 0; }
+        .forms-container.show-login #login-form { transform: translateX(0); opacity: 1; }
+        .input-group { position: relative; margin-bottom: 20px; }
+        .form-control { width: 100%; padding: 12px 12px 12px 40px; border: 1px solid #ced4da; border-radius: 8px; font-size: 1rem; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+        .form-control:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2); }
+        .input-group i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+        .btn { width: 100%; padding: 12px; font-size: 1rem; font-weight: 600; border: none; border-radius: 8px; background-color: var(--primary-color); color: white; cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease; }
+        .btn:hover { background-color: #0b5ed7; }
+        .btn:active { transform: scale(0.98); }
+        .separator { display: flex; align-items: center; text-align: center; color: #aaa; margin: 25px 0; }
+        .separator::before, .separator::after { content: ''; flex: 1; border-bottom: 1px solid #e0e0e0; }
+        .separator:not(:empty)::before { margin-right: .5em; }
+        .separator:not(:empty)::after { margin-left: .5em; }
+        .toggle-link { text-align: center; font-size: 0.95rem; color: var(--text-muted); }
+        .toggle-link a { color: var(--primary-color); text-decoration: none; font-weight: 600; cursor: pointer; }
+        .toggle-link a:hover { text-decoration: underline; }
+        .error-msg { color: #dc3545; background-color: #f8d7da; border: 1px solid #f5c2c7; text-align: center; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 0.9rem; }
+        .image-side { flex-basis: 50%; background-image: url('https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0'); background-size: cover; background-position: center; position: relative; display: flex; flex-direction: column; justify-content: flex-end; padding: 50px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .image-side::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(13, 110, 253, 0.4), rgba(13, 110, 253, 0.1)); z-index: 1; }
+        .image-side h1, .image-side p { position: relative; z-index: 2; }
+        .image-side h1 { font-size: 2.5rem; font-weight: bold; margin-bottom: 15px; }
+        .image-side p { font-size: 1.1rem; max-width: 450px; line-height: 1.6; }
+        @media (max-width: 768px) {
+            .split-container { flex-direction: column; }
+            .image-side { display: none; }
+            .form-side { flex-basis: 100%; justify-content: flex-start; padding-top: 50px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="split-container">
+        <div class="form-side">
+            <div class="form-wrapper">
+                <div class="logo">
+                    <i class="bi bi-compass"></i> <span>GoOut</span>
+                </div>
+                <div class="forms-container <?php echo (isset($show_form) && $show_form == 'login') ? 'show-login' : ''; ?>">
+                    
+                    <!-- Sign Up -->
+                    <form id="signup-form" method="POST">
+                        <h2>Créer un compte</h2>
+                        <p class="subtitle">Participe à ta prochaine aventure !</p>
+                        <?php if (isset($error) && (!isset($show_form) || $show_form == 'signup')) echo "<p class='error-msg'>$error</p>"; ?>
+                        <div class="input-group">
+                            <i class="bi bi-person"></i>
+                            <input type="text" class="form-control" name="username" placeholder="Nom complet" required>
+                        </div>
+                        <div class="input-group">
+                            <i class="bi bi-envelope"></i>
+                            <input type="email" class="form-control" name="email" placeholder="Email" required>
+                        </div>
+                        <div class="input-group">
+                            <i class="bi bi-lock"></i>
+                            <input type="password" class="form-control" name="password" placeholder="Mot de passe" required>
+                        </div>
+                        <button type="submit" name="signup" class="btn">S'inscrire</button>
+                    </form>
+
+                    <!-- Login -->
+                    <form id="login-form" method="POST">
+                        <h2>Se connecter</h2>
+                        <p class="subtitle">Content de te revoir !</p>
+                        <?php if (isset($error) && isset($show_form) && $show_form == 'login') echo "<p class='error-msg'>$error</p>"; ?>
+                        <div class="input-group">
+                            <i class="bi bi-person"></i>
+                            <input type="text" class="form-control" name="username" placeholder="Username" required>
+                        </div>
+                        <div class="input-group">
+                            <i class="bi bi-lock"></i>
+                            <input type="password" class="form-control" name="password" placeholder="Mot de passe" required>
+                        </div>
+                        <button type="submit" name="login" class="btn">Login</button>
+                    </form>
+                </div>
+
+                <div class="separator">ou</div>
+                <div class="toggle-link" id="toggle-to-login">
+                    Déjà un compte ? <a id="show-login-form">Se connecter</a>
+                </div>
+                <div class="toggle-link" id="toggle-to-signup" style="display: none;">
+                    Pas de compte ? <a id="show-signup-form">Créer un compte</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="image-side">
+            <h1>Découvre de nouvelles aventures</h1>
+            <p>Rejoins une communauté passionnée et participe à des activités uniques près de chez toi.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const formsContainer = document.querySelector('.forms-container');
+            const showLoginBtn = document.getElementById('show-login-form');
+            const showSignupBtn = document.getElementById('show-signup-form');
+            const toggleToLogin = document.getElementById('toggle-to-login');
+            const toggleToSignup = document.getElementById('toggle-to-signup');
+            showLoginBtn.addEventListener('click', () => {
+                formsContainer.classList.add('show-login');
+                toggleToLogin.style.display = 'none';
+                toggleToSignup.style.display = 'block';
+            });
+            showSignupBtn.addEventListener('click', () => {
+                formsContainer.classList.remove('show-login');
+                toggleToLogin.style.display = 'block';
+                toggleToSignup.style.display = 'none';
+            });
+            if (formsContainer.classList.contains('show-login')) {
+                toggleToLogin.style.display = 'none';
+                toggleToSignup.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

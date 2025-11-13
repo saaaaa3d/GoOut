@@ -1,0 +1,11 @@
+:root {
+    --primary-color: #0d6efd;
+    --secondary-color: #6c757d;
+    --success-color: #198754;
+    --text-dark: #212529;
+    --text-light: #f8f9fa;
+    --bg-light: #f8f9fa;
+    --primary-green: #11998e;
+    --secondary-green: #38ef7d;
+    --hero-gradient: linear-gradient(90deg, var(--primary-green), var(--secondary-green));
+}
